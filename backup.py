@@ -1,11 +1,13 @@
 from __future__ import print_function
 
-import dockercloud
+import kubernetes
 import psycopg2
 import subprocess
 import os
 import datetime
 import time
+import itertools
+import base64
 
 # Parameters:
 BUCKET = os.environ['S3_BUCKET']
@@ -80,18 +82,22 @@ def handle_db(db_url):
 
 def get_services():
     all_urls = set()
-    services = dockercloud.Service().list()
-    for service in services:
-        service = service.fetch(service.pk)
-        attrs = service.get_all_attributes()
-        # for attr in attrs.items(): print attr
-        envvars = attrs['calculated_envvars']
-        for envvar in envvars:
-            if envvar['key'] == 'DATABASE_URL':
-                db_url = envvar['value']
-                if db_url not in all_urls:
-                    handle_db(db_url)
-                    all_urls.add(db_url)
+    kubernetes.config.load_kube_config()
+    kubev1 = kubernetes.client.CoreV1Api()
+    containers = itertools.chain(*[pod.spec.containers for pod
+                                   in kubev1.list_pod_for_all_namespaces(watch=False).items])
+    envvars = itertools.chain(*[container.env for container in containers if container.env])
+    secrets = {s.metadata.name: s.data for s in kubev1.list_secret_for_all_namespaces(watch=False).items}
+    for envvar in envvars:
+        if envvar.name == 'DATABASE_URL' and envvar.value_from and envvar.value_from.secret_key_ref:
+            secret = secrets.get(envvar.value_from.secret_key_ref.name)
+            if secret:
+                db_url = secret.get(envvar.value_from.secret_key_ref.key)
+                if db_url:
+                    db_url = base64.b64decode(db_url).decode()
+                    if db_url not in all_urls:
+                        handle_db(db_url)
+                        all_urls.add(db_url)
 
 if __name__ == "__main__":
     get_services()

@@ -1,0 +1,5 @@
+sudo: required
+env:
+- CHANGE_MINIKUBE_NONE_USER=true
+script:
+- tests/setup_testing_environment.sh && tests/test.sh
