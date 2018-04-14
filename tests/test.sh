@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+TEST_NAMESPACE="${1:-kdbs3test}"
+
 create_db() {
     NAME="${1}"
     NAMESPACE="${2}"
@@ -93,15 +95,24 @@ spec:
       containers:
       - name: ${NAME}
         image: db-backup
+        imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:
             name: db-backup" \
     | kubectl create -f - && kubectl rollout status "deployment/${NAME}" -n "${NAMESPACE}"
 }
 
-docker build -t db-backup . &&\
-kubectl create namespace app &&\
-kubectl create secret generic db --from-literal=DATABASE_URL=postgres://postgres:postgres@postgres/postgres -n app &&\
-create_db postgres app &&\
-create_app app app db &&\
-create_db_backup db-backup app
+kubectl create secret generic db --from-literal=DATABASE_URL=postgres://budgetkey:postgres@postgres/budgetkey -n "${TEST_NAMESPACE}" &&\
+create_db postgres "${TEST_NAMESPACE}" &&\
+create_app app "${TEST_NAMESPACE}" db &&\
+DB_POD=$(kubectl get pods -n "${TEST_NAMESPACE}" -l app=postgres -o=jsonpath='{.items[0].metadata.name}') &&\
+kubectl exec -it -n "${TEST_NAMESPACE}" "${DB_POD}" -- su postgres -c "psql -d budgetkey -c 'create table test (id integer); \
+                                                                       insert into test (id) values (1), (2), (3); \
+                                                                       select * from test;'"
+[ "$?" != "0" ] && echo failed to initialize db and app && exit 1
+
+create_db_backup db-backup "${TEST_NAMESPACE}" &&\
+BACKUP_POD=$(kubectl get pods -n "${TEST_NAMESPACE}" -l app=db-backup -o=jsonpath='{.items[0].metadata.name}')
+[ "$?" != "0" ] && echo failed to initialize backup pod && exit 1
+sleep 5
+kubectl logs $BACKUP_POD -n "${TEST_NAMESPACE}"

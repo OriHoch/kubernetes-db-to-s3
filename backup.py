@@ -82,7 +82,12 @@ def handle_db(db_url):
 
 def get_services():
     all_urls = set()
-    kubernetes.config.load_kube_config()
+    try:
+        kubernetes.config.incluster_config.load_incluster_config()
+    except Exception as e:
+        print(e)
+        print('attempting local kube config')
+        kubernetes.config.load_kube_config()
     kubev1 = kubernetes.client.CoreV1Api()
     containers = itertools.chain(*[pod.spec.containers for pod
                                    in kubev1.list_pod_for_all_namespaces(watch=False).items])

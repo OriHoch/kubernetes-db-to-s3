@@ -2,4 +2,4 @@ sudo: required
 env:
 - CHANGE_MINIKUBE_NONE_USER=true
 script:
-- tests/setup_testing_environment.sh && tests/test.sh
+- tests/setup_testing_environment.sh && tests/minikube_docker_build.sh && tests/create_secret.sh kdbs3test && tests/test.sh kdbs3test

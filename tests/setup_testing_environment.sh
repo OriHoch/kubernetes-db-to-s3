@@ -28,19 +28,11 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.2/minik
 sudo -E minikube start --vm-driver=none --kubernetes-version=v1.9.4 &&\
 minikube update-context &&\
 JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done &&\
-kubectl get nodes &&\
-kubectl create secret generic db-backup --from-literal=S3_BUCKET=${S3_BUCKET} \
-                                        --from-literal=S3_NAMESPACE=${S3_NAMESPACE} \
-                                        --from-literal=AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
-                                        --from-literal=AWS_SECRET_KEY=${AWS_SECRET_KEY} \
-                                        --from-literal=S3_HOST=${S3_HOST} -n app
-[ "${?}" != "0" ] && echo failed to initialize minikube && exit 1
-
-minikube mount `pwd`:/kubernetes-db-to-s3 &
-sleep 2
-echo 'cd /kubernetes-db-to-s3; docker build -t db-backup .; exit' | minikube ssh &&\
-kill %1 && sleep 1
-[ "${?}" != "0" ] && echo failed to build the docker image inside minikube && exit 1
-
-echo Testing environment was setup successfully
-exit 0
+kubectl get nodes
+if [ "$?" == "0" ]; then
+    echo Testing environment was setup successfully
+    exit 0
+else
+    echo failure
+    exit 1
+fi
