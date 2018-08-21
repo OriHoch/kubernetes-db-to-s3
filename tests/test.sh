@@ -106,6 +106,7 @@ kubectl create secret generic db --from-literal=DATABASE_URL=postgres://budgetke
 create_db postgres "${TEST_NAMESPACE}" &&\
 create_app app "${TEST_NAMESPACE}" db &&\
 DB_POD=$(kubectl get pods -n "${TEST_NAMESPACE}" -l app=postgres -o=jsonpath='{.items[0].metadata.name}') &&\
+sleep 30 &&\
 kubectl exec -it -n "${TEST_NAMESPACE}" "${DB_POD}" -- su postgres -c "psql -d budgetkey -c 'create table test (id integer); \
  insert into test (id) values (1), (2), (3); \
  select * from test;'"
