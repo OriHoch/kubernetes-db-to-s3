@@ -35,4 +35,5 @@ RUN touch /var/log/cron.log
 #CMD python /backup.py && \
  #   crond -s /etc/cron.d -b -L /var/log/cron.log && \
   #  tail -f /var/log/cron.log
+  CMD while true; do sleep 1; done
 VOLUME ["/root/.config"]
