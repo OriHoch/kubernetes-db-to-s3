@@ -2,6 +2,7 @@ FROM alpine:3.7
 ENV CLOUD_SDK_VERSION 212.0.0
 
 ENV PATH /google-cloud-sdk/bin:$PATH
+ENV 
 RUN apk --no-cache add \
         curl \
         python \
@@ -35,5 +36,5 @@ RUN touch /var/log/cron.log
 #CMD python /backup.py && \
  #   crond -s /etc/cron.d -b -L /var/log/cron.log && \
   #  tail -f /var/log/cron.log
-  CMD while true; do sleep 1; done
+  CMD while true; do sleep 1; export MINIKUBE=true; done
 VOLUME ["/root/.config"]
