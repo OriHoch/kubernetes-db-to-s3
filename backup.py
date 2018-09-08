@@ -37,11 +37,11 @@ def get_latest_md5(db_name, table):
 def handle_table(db_url, table):
     start = time.time()
     db_name = db_url.split('/')[-1]
-    # print('\tGot table "%s/%s"' % (db_name, table))
+    print('\tGot table "%s/%s"' % (db_name, table))
     latest_hash = get_latest_md5(db_name, table)
-    # print('\tExisting hash "%s"' % latest_hash)
+    print('\tExisting hash "%s"' % latest_hash)
     cmd = 'pg_dump -t "%s" "%s" | gzip | md5sum' % (table, db_url)
-    # print('#',cmd)
+    print('#',cmd)
     proc = subprocess.Popen(['/bin/sh', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     current_hash, _ = proc.communicate()
     current_hash = current_hash.split()[0][:6]
@@ -58,7 +58,7 @@ def handle_table(db_url, table):
         cmd = '%s put --no-progress --no-encrypt - %s' % (s3cmd, filename)
         cmd = 'pg_dump -t "%s" "%s" | gzip | %s ' % \
               (table, db_url, cmd)
-        # print('#',cmd)
+        print('#',cmd)
         proc = subprocess.Popen(['/bin/sh', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         print(out, err)
@@ -70,6 +70,7 @@ def handle_db(db_url):
     start = time.time()
     print('Encountered DB URL %s' % db_url)
     conn = psycopg2.connect(db_url)
+    print('success connect %s' % db_url)
     cursor = conn.cursor()
     cursor.execute("""SELECT table_name FROM information_schema.tables
                       WHERE table_schema = 'public'""")
