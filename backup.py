@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import kubernetes
+from kubernetes import client, config
 import psycopg2
 import subprocess
 import os
@@ -82,16 +83,24 @@ def handle_db(db_url):
 
 def get_services():
     all_urls = set()
-    try:
-        kubernetes.config.incluster_config.load_incluster_config()
-    except Exception as e:
-        print(e)
-        print('attempting local kube config')
-        kubernetes.config.load_kube_config()
-    kubev1 = kubernetes.client.CoreV1Api()
+    if "MINIKUBE" in os.environ:
+        print("Pod in minikube environment")
+        config.load_kube_config()
+    else:
+        print("Pod in k8s cloud environment")
+        try:
+            config.incluster_config.load_incluster_config()
+        except Exception as e:
+            print(e)
+             
+      
+    
+    kubev1 = client.CoreV1Api()
     containers = itertools.chain(*[pod.spec.containers for pod
                                    in kubev1.list_pod_for_all_namespaces(watch=False).items])
+    print(containers)
     envvars = itertools.chain(*[container.env for container in containers if container.env])
+    print(envvars)
     secrets = {s.metadata.name: s.data for s in kubev1.list_secret_for_all_namespaces(watch=False).items}
     for envvar in envvars:
         if envvar.name == 'DATABASE_URL' and envvar.value_from and envvar.value_from.secret_key_ref:

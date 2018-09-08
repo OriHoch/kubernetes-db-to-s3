@@ -2,7 +2,9 @@ FROM alpine:3.7
 ENV CLOUD_SDK_VERSION 212.0.0
 
 ENV PATH /google-cloud-sdk/bin:$PATH
-ENV 
+ARG MINIKUBE=true
+ENV MINIKUBE=$MINIKUBE
+
 RUN apk --no-cache add \
         curl \
         python \
@@ -26,6 +28,9 @@ RUN apk add --update --no-cache \
             py-pip libffi-dev 
 RUN pip install kubernetes psycopg2 s3cmd
 COPY backup.py /
+RUN mkdir /root/.kube & mkdir /root/.minikube
+COPY .kube /root/.kube
+COPY .minikube/   /root/.minikube
 COPY crontab /etc/cron.d/do-backup
 RUN chmod 0644 /etc/cron.d/do-backup
 RUN touch /var/log/cron.log
