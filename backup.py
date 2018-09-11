@@ -19,6 +19,9 @@ HOST = os.environ.get('S3_HOST', 's3.amazonaws.com')
 HOST_BUCKET = os.environ.get('S3_HOST_BUCKET', '%(bucket)s.s3.amazonaws.com')
 s3cmd = 's3cmd --access_key="%s" --secret_key="%s" --host="%s" --host-bucket="%s"' % (ACCESS_KEY, SECRET_KEY, HOST, HOST_BUCKET)
 bucket_prefix = 's3://%s/db_backups/%s' % (BUCKET, NAMESPACE)
+gcloud_bucket = "gs://mickey_rouash_dsk"
+
+gcloud_cmd = 'gsutil cp %s ' % (gcloud_bucket)
 
 
 def get_latest_md5(db_name, table):
@@ -53,13 +56,28 @@ def handle_table(db_url, table):
     else:
         status = 'SAME'
     if status != 'SAME':
-        filename = '%s/%s/%s/%s.%s.%s.%s.pg_dump.gz' % \
+        filename =  '%s/%s/%s/%s.%s.%s.%s.pg_dump.gz' % \
                    (bucket_prefix, db_name, table, db_name, table, datetime.datetime.now().date().isoformat(), current_hash)
+        filename_gcloud= '%s.%s.%s.%s.pg_dump.gz' % \
+                   (   db_name, table, datetime.datetime.now().date().isoformat(),
+                    current_hash)
+
         cmd = '%s put --no-progress --no-encrypt - %s' % (s3cmd, filename)
         cmd = 'pg_dump -t "%s" "%s" | gzip | %s ' % \
               (table, db_url, cmd)
-        print('#',cmd)
+        cmd = 'pg_dump -t "%s" "%s" | gzip > /%s ' % \
+              (table, db_url, filename_gcloud)
+        print('#', cmd)
         proc = subprocess.Popen(['/bin/sh', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        print(out, err)
+
+        gzip_cmd = 'gsutil cp /%s %s/ ' % (filename_gcloud,gcloud_bucket)
+
+        print('#',gzip_cmd)
+
+
+        proc = subprocess.Popen(['/bin/sh', '-c', gzip_cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         print(out, err)
         # print('-->', proc.returncode)
