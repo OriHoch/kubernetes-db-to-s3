@@ -38,8 +38,9 @@ RUN touch /var/log/cron.log
 
 
 # Run the command on container startup
-#CMD python /backup.py && \
- #   crond -s /etc/cron.d -b -L /var/log/cron.log && \
-  #  tail -f /var/log/cron.log
-  CMD while true; do sleep 1; export MINIKUBE=true; done
+CMD python /backup.py && \
+    crond -s /etc/cron.d -b -L /var/log/cron.log && \
+    tail -f /var/log/cron.log
+# this is for debugging purpose to connect a Pod  via exec -it /bin/bash
+#CMD while true; do sleep 1; export MINIKUBE=true; done
 VOLUME ["/root/.config"]
