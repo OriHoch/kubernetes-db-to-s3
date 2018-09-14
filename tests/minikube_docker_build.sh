@@ -3,6 +3,7 @@
 mkdir .kube .minikube
 #copy the current user minkube configuration to docker  image
 cp ~/.minikube/client.*   .minikube/ && cp ~/.minikube/ca.crt .minikube/
+chmod  a+r .minikube/client.key
 # modify cthe config file from the current user to point to root user on the docker image
 sed -e 's|\(.*client-key:\).*\(client\.key$\)|\1 /root/.minikube/\2|'\
         -e 's|\(.*client-certificate:\).*\(client\.crt$\)|\1 /root/.minikube/\2|' \
