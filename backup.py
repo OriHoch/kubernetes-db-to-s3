@@ -41,7 +41,7 @@ def handle_table(db_url, table):
     start = time.time()
     db_name = db_url.split('/')[-1]
     print('\tGot table "%s/%s"' % (db_name, table))
-    latest_hash = get_latest_md5(db_name, table)
+    latest_hash =  ""# get_latest_md5(db_name, table)
     print('\tExisting hash "%s"' % latest_hash)
     cmd = 'pg_dump -t "%s" "%s" | gzip | md5sum' % (table, db_url)
     print('#',cmd)
@@ -117,9 +117,9 @@ def get_services():
     kubev1 = client.CoreV1Api()
     containers = itertools.chain(*[pod.spec.containers for pod
                                    in kubev1.list_pod_for_all_namespaces(watch=False).items])
-    print(containers)
+    
     envvars = itertools.chain(*[container.env for container in containers if container.env])
-    print(envvars)
+    
     secrets = {s.metadata.name: s.data for s in kubev1.list_secret_for_all_namespaces(watch=False).items}
     for envvar in envvars:
         if envvar.name == 'DATABASE_URL' and envvar.value_from and envvar.value_from.secret_key_ref:

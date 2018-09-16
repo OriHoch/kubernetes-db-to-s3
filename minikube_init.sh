@@ -41,7 +41,7 @@ sudo apt install curl  python-pip \
     gcloud --version
 
     pip install kubernetes
-    pip install pick
+    pip install pick python-dotenv
 
 # Install docker if needed
 path_to_executable=$(which docker)
@@ -68,7 +68,7 @@ sudo chmod +x kubectl
 sudo mv kubectl /usr/local/bin/
 
 echo "Download minikube from minikube project"
-curl -Lo minikube "https://storage.googleapis.com/minikube/releases/v0.28.2/minikube-linux-amd64"
+curl -Lo minikube "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
 sudo chmod +x minikube && sudo mv minikube /usr/local/bin/
 
 echo "Starting minikube"

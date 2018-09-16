@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-mkdir .kube .minikube
+mkdir .kube .minikube  >/dev/null 2>&
 #copy the current user minkube configuration to docker  image
 cp ~/.minikube/client.*   .minikube/ && cp ~/.minikube/ca.crt .minikube/
 chmod  a+r .minikube/client.key
