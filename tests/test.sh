@@ -76,6 +76,43 @@ spec:
     | kubectl create -f - && kubectl rollout status "deployment/${NAME}" -n "${NAMESPACE}"
 }
 
+create_cluster_role() {
+    NAME="${1}"
+    NAMESPACE="${2}"
+    echo "in create_cluster_role()"
+    echo "
+apiVersion: rbac.authorization.k8s.io/v1
+kind:  ClusterRole 
+metadata:
+  name: ${NAME}
+  namespace: ${NAMESPACE}
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods", "secrets"]
+  verbs: ["get", "watch", "list"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ${NAME}
+  namespace: ${NAMESPACE}
+subjects:
+- kind: ServiceAccount
+  name: ${NAME}
+  namespace: ${NAMESPACE}
+roleRef:
+  kind: ClusterRole
+  name: db-backup
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${NAME}" \
+    | kubectl create -f - && kubectl rollout status "deployment/${NAME}" -n "${NAMESPACE}"
+}
+
+
 create_db_backup() {
     NAME="${1}"
     NAMESPACE="${2}"
@@ -92,6 +129,7 @@ spec:
       labels:
         app: ${NAME}
     spec:
+      serviceAccountName: db-backup
       containers:
       - name: ${NAME}
         image: db-backup
@@ -106,9 +144,10 @@ kubectl create secret generic db --from-literal=DATABASE_URL=postgres://budgetke
 create_db postgres "${TEST_NAMESPACE}" &&\
 create_app app "${TEST_NAMESPACE}" db &&\
 DB_POD=$(kubectl get pods -n "${TEST_NAMESPACE}" -l app=postgres -o=jsonpath='{.items[0].metadata.name}') &&\
+sleep 30 &&\
 kubectl exec -it -n "${TEST_NAMESPACE}" "${DB_POD}" -- su postgres -c "psql -d budgetkey -c 'create table test (id integer); \
-                                                                       insert into test (id) values (1), (2), (3); \
-                                                                       select * from test;'"
+ insert into test (id) values (1), (2), (3); \
+ select * from test;'"
 [ "$?" != "0" ] && echo failed to initialize db and app && exit 1
 
 create_db_backup db-backup "${TEST_NAMESPACE}" &&\

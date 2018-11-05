@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import kubernetes
+from kubernetes import client, config
 import psycopg2
 import subprocess
 import os
@@ -18,6 +19,9 @@ HOST = os.environ.get('S3_HOST', 's3.amazonaws.com')
 HOST_BUCKET = os.environ.get('S3_HOST_BUCKET', '%(bucket)s.s3.amazonaws.com')
 s3cmd = 's3cmd --access_key="%s" --secret_key="%s" --host="%s" --host-bucket="%s"' % (ACCESS_KEY, SECRET_KEY, HOST, HOST_BUCKET)
 bucket_prefix = 's3://%s/db_backups/%s' % (BUCKET, NAMESPACE)
+gcloud_bucket = "gs://mickey_rouash_dsk"
+
+gcloud_cmd = 'gsutil cp %s ' % (gcloud_bucket)
 
 
 def get_latest_md5(db_name, table):
@@ -36,11 +40,11 @@ def get_latest_md5(db_name, table):
 def handle_table(db_url, table):
     start = time.time()
     db_name = db_url.split('/')[-1]
-    # print('\tGot table "%s/%s"' % (db_name, table))
-    latest_hash = get_latest_md5(db_name, table)
-    # print('\tExisting hash "%s"' % latest_hash)
+    print('\tGot table "%s/%s"' % (db_name, table))
+    latest_hash =  ""# get_latest_md5(db_name, table)
+    print('\tExisting hash "%s"' % latest_hash)
     cmd = 'pg_dump -t "%s" "%s" | gzip | md5sum' % (table, db_url)
-    # print('#',cmd)
+    print('#',cmd)
     proc = subprocess.Popen(['/bin/sh', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     current_hash, _ = proc.communicate()
     current_hash = current_hash.split()[0][:6]
@@ -52,13 +56,28 @@ def handle_table(db_url, table):
     else:
         status = 'SAME'
     if status != 'SAME':
-        filename = '%s/%s/%s/%s.%s.%s.%s.pg_dump.gz' % \
+        filename =  '%s/%s/%s/%s.%s.%s.%s.pg_dump.gz' % \
                    (bucket_prefix, db_name, table, db_name, table, datetime.datetime.now().date().isoformat(), current_hash)
+        filename_gcloud= '%s.%s.%s.%s.pg_dump.gz' % \
+                   (   db_name, table, datetime.datetime.now().date().isoformat(),
+                    current_hash)
+
         cmd = '%s put --no-progress --no-encrypt - %s' % (s3cmd, filename)
         cmd = 'pg_dump -t "%s" "%s" | gzip | %s ' % \
               (table, db_url, cmd)
-        # print('#',cmd)
+        cmd = 'pg_dump -t "%s" "%s" | gzip > /%s ' % \
+              (table, db_url, filename_gcloud)
+        print('#', cmd)
         proc = subprocess.Popen(['/bin/sh', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        print(out, err)
+
+        gzip_cmd = 'gsutil cp /%s %s/ ' % (filename_gcloud,gcloud_bucket)
+
+        print('#',gzip_cmd)
+
+
+        proc = subprocess.Popen(['/bin/sh', '-c', gzip_cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         print(out, err)
         # print('-->', proc.returncode)
@@ -69,6 +88,7 @@ def handle_db(db_url):
     start = time.time()
     print('Encountered DB URL %s' % db_url)
     conn = psycopg2.connect(db_url)
+    print('success connect %s' % db_url)
     cursor = conn.cursor()
     cursor.execute("""SELECT table_name FROM information_schema.tables
                       WHERE table_schema = 'public'""")
@@ -82,16 +102,24 @@ def handle_db(db_url):
 
 def get_services():
     all_urls = set()
-    try:
-        kubernetes.config.incluster_config.load_incluster_config()
-    except Exception as e:
-        print(e)
-        print('attempting local kube config')
-        kubernetes.config.load_kube_config()
-    kubev1 = kubernetes.client.CoreV1Api()
+    if "MINIKUBE" in os.environ:
+        print("Pod in minikube environment")
+        config.load_kube_config()
+    else:
+        print("Pod in k8s cloud environment")
+        try:
+            config.incluster_config.load_incluster_config()
+        except Exception as e:
+            print(e)
+             
+      
+    
+    kubev1 = client.CoreV1Api()
     containers = itertools.chain(*[pod.spec.containers for pod
                                    in kubev1.list_pod_for_all_namespaces(watch=False).items])
+    
     envvars = itertools.chain(*[container.env for container in containers if container.env])
+    
     secrets = {s.metadata.name: s.data for s in kubev1.list_secret_for_all_namespaces(watch=False).items}
     for envvar in envvars:
         if envvar.name == 'DATABASE_URL' and envvar.value_from and envvar.value_from.secret_key_ref:
